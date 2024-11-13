@@ -276,7 +276,7 @@ const FollowerAnalyzer = () => {
           
           <div className="space-y-2">
             <Input
-              placeholder="Your Bluesky handle or email"
+              placeholder="Your Bluesky handle"
               value={username}
               onChange={(e) => setUsername(e.target.value.replace('@', ''))}
             />
