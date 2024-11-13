@@ -54,13 +54,12 @@ const FollowerAnalyzer = () => {
       localStorage.setItem('bsky_session', JSON.stringify(sessionData));
       setIsAuthenticated(true);
       setLoggedInHandle(response.data.handle);
+      setLoading(true);
       setError('');
       fetchFollowerData(response.data.handle);
     } catch (err) {
       setError('Login failed. Please check your credentials.');
       console.error('Login error:', err);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -156,7 +155,7 @@ const FollowerAnalyzer = () => {
         encoding: 'image/png'
       });
 
-      const text = `My top 5 followers are here... 👀\n\nFind yours at topblueskyfollowers.com\n\nMade by @rhyskentish.bsky.social`;
+      const text = `My top 5 followers are ${followers.slice(0, 5).map(f => `@${f.handle}`).join(' ')} 👀\n\nFind yours at topblueskyfollowers.com\n\nMade by @rhyskentish.bsky.social`;
 
       // Create facets for mentions and link
       const facets = [];
@@ -355,7 +354,7 @@ const FollowerAnalyzer = () => {
                       <span className="font-medium text-slate-600 w-8">#{index + 1}</span>
                       {follower.avatar ? (
                         <img 
-                          src={follower.avatar} 
+                          src={`https://corsproxy.io/?${follower.avatar}`} 
                           alt={`${follower.handle}'s avatar`}
                           className="w-10 h-10 rounded-full object-cover"
                           onError={(e) => {
@@ -398,6 +397,7 @@ const FollowerAnalyzer = () => {
               setPassword('');
               setFollowers([]);
               setLoggedInHandle('');
+              setLoading(false)
             }}
             variant="link"
           >
