@@ -18,6 +18,11 @@ const FollowerAnalyzer = () => {
   const [error, setError] = useState('');
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [loggedInHandle, setLoggedInHandle] = useState('');
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareOptions, setShareOptions] = useState({
+    mentionTopFollowers: true,
+    includeImage: true,
+  });
 
   useEffect(() => {
     const restoreSession = async () => {
@@ -137,31 +142,42 @@ const FollowerAnalyzer = () => {
     }
   };
 
-  const handleShare = async () => {
+  const handleShare = () => {
+    setShowShareModal(true);
+  };
+
+  const handleShareConfirm = async () => {
     try {
       setSharing(true);
-      await new Promise(r => setTimeout(r, 1000)); 
+      await new Promise(r => setTimeout(r, 1000));
+
       // Capture the existing followers list
       const existingList = document.querySelector('.space-y-4');
       const canvas = await html2canvas(existingList, {
         useCORS: true,
         allowTaint: true,
       });
-      
+
       const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-      
+
       // Upload image to Bluesky
       const uploadResponse = await agent.uploadBlob(blob, {
-        encoding: 'image/png'
+        encoding: 'image/png',
       });
 
-      const text = `My top 5 followers are ${followers.slice(0, 5).map(f => `@${f.handle}`).join(' ')} 👀\n\nFind yours at topblueskyfollowers.com\n\nMade by @rhyskentish.bsky.social`;
+    
+       let  text = `My top ${Math.min(5, followers.length)} followers are ${followers
+          .slice(0, 5)
+          .map((f) => `@${f.handle}`)
+          .join(' ')} 👀\n\nFind yours at topblueskyfollowers.com (made by @rhyskentish.bsky.social)`;
+    
 
       // Create facets for mentions and link
       const facets = [];
       let currentPosition = 0;
-  
+
       // Add mentions for top 5 followers
+      if (shareOptions.mentionTopFollowers) {
       for (const follower of followers.slice(0, 5)) {
         const handle = follower.handle;
         const mention = `@${handle}`;
@@ -169,73 +185,86 @@ const FollowerAnalyzer = () => {
         if (mentionIndex !== -1) {
           const byteStart = new TextEncoder().encode(text.slice(0, mentionIndex + 1)).length - 1;
           const byteEnd = byteStart + new TextEncoder().encode(mention).length;
-          
+
           facets.push({
             index: {
               byteStart,
               byteEnd,
             },
-            features: [{
-              $type: 'app.bsky.richtext.facet#mention',
-              did: follower.did
-            }]
+            features: [
+              {
+                $type: 'app.bsky.richtext.facet#mention',
+                did: follower.did,
+              },
+            ],
           });
           currentPosition = mentionIndex + mention.length;
         }
       }
-  
+    }
+
       // Add mention for rhyskentish
       const creatorMention = '@rhyskentish.bsky.social';
       const creatorIndex = text.lastIndexOf(creatorMention);
       if (creatorIndex !== -1) {
         const byteStart = new TextEncoder().encode(text.slice(0, creatorIndex + 1)).length - 1;
         const byteEnd = byteStart + new TextEncoder().encode(creatorMention).length;
-        
+
         const resolved = await agent.resolveHandle({ handle: 'rhyskentish.bsky.social' });
-        
+
         facets.push({
           index: {
             byteStart,
             byteEnd,
           },
-          features: [{
-            $type: 'app.bsky.richtext.facet#mention',
-            did: resolved.data.did
-          }]
+          features: [
+            {
+              $type: 'app.bsky.richtext.facet#mention',
+              did: resolved.data.did,
+            },
+          ],
         });
       }
-  
+
       // Add link facet
       const link = 'topblueskyfollowers.com';
       const linkIndex = text.indexOf(link);
       if (linkIndex !== -1) {
         const byteStart = new TextEncoder().encode(text.slice(0, linkIndex)).length;
         const byteEnd = byteStart + new TextEncoder().encode(link).length;
-        
+
         facets.push({
           index: {
             byteStart,
             byteEnd,
           },
-          features: [{
-            $type: 'app.bsky.richtext.facet#link',
-            uri: `https://${link}`
-          }]
+          features: [
+            {
+              $type: 'app.bsky.richtext.facet#link',
+              uri: `https://${link}`,
+            },
+          ],
         });
       }
 
-      // Create post with facets and image
-      await agent.post({
+      const postData = {
         text,
         facets,
-        embed: {
+      };
+
+      if (shareOptions.includeImage) {
+        postData.embed = {
           $type: 'app.bsky.embed.images',
-          images: [{
-            alt: 'Top 5 most followed followers ranking',
-            image: uploadResponse.data.blob
-          }]
-        }
-      });
+          images: [
+            {
+              alt: 'Top most followed followers ranking',
+              image: uploadResponse.data.blob,
+            },
+          ],
+        };
+      }
+
+      await agent.post(postData);
 
       alert('Posted successfully!');
     } catch (error) {
@@ -243,6 +272,7 @@ const FollowerAnalyzer = () => {
       alert('Failed to share. Please try again.');
     } finally {
       setSharing(false);
+      setShowShareModal(false);
     }
   };
 
@@ -389,7 +419,7 @@ const FollowerAnalyzer = () => {
         )}
 
         <div className="mt-4 text-center text-sm text-slate-500">
-          <Button 
+        <Button 
             onClick={() => {
               localStorage.removeItem('bsky_session');
               setIsAuthenticated(false);
@@ -405,6 +435,46 @@ const FollowerAnalyzer = () => {
           </Button>
         </div>
       </CardContent>
+      {showShareModal && (
+    <div className="fixed z-10 inset-0 overflow-y-auto">
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="fixed inset-0 bg-black opacity-30" onClick={() => setShowShareModal(false)}></div>
+        <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 z-20">
+          <h2 className="text-xl font-bold mb-4">You're about to post your results on Bluesky...</h2>
+          <div className="space-y-4">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="mentionTopFollowers"
+                className="mr-2"
+                checked={shareOptions.mentionTopFollowers}
+                onChange={(e) => setShareOptions({ ...shareOptions, mentionTopFollowers: e.target.checked })}
+              />
+              <label htmlFor="mentionTopFollowers">
+                Mention top {Math.min(5, followers.length)} followers
+              </label>
+            </div>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="includeImage"
+                className="mr-2"
+                checked={shareOptions.includeImage}
+                onChange={(e) => setShareOptions({ ...shareOptions, includeImage: e.target.checked })}
+              />
+              <label htmlFor="includeImage">Include ranking image</label>
+            </div>
+          </div>
+          <div className="mt-6 flex justify-end space-x-4">
+            <Button onClick={() => setShowShareModal(false)}>Cancel</Button>
+            <Button onClick={handleShareConfirm} disabled={sharing}>
+              {sharing ? 'Sharing...' : 'Share'}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )}
     </Card>
   );
 };
