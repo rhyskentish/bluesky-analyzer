@@ -278,7 +278,7 @@ const FollowerAnalyzer = () => {
             <Input
               placeholder="Your Bluesky handle or email"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(e) => setUsername(e.target.value.replace('@', ''))}
             />
             <Input
               type="password"
