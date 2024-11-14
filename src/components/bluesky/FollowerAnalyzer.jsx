@@ -159,6 +159,10 @@ const FollowerAnalyzer = () => {
       });
 
       const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      const altText = followers
+        .slice(0, 5)
+        .map((f, i) => `#${i + 1} @${f.handle} (${f.followerCount.toLocaleString()} followers)`)
+        .join(', ');
 
       // Upload image to Bluesky
       const uploadResponse = await agent.uploadBlob(blob, {
@@ -257,7 +261,7 @@ const FollowerAnalyzer = () => {
           $type: 'app.bsky.embed.images',
           images: [
             {
-              alt: 'Top most followed followers ranking',
+              alt: `My top 10 followers ranking: ${altText}`,
               image: uploadResponse.data.blob,
             },
           ],
